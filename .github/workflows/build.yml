@@ -41,6 +41,16 @@ jobs:
           path: dist
           if-no-files-found: error
 
+      - name: Package KernelSU module
+        run: npm run package
+
+      - name: Upload module zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-zip
+          path: release/*.zip
+          if-no-files-found: error
+
   test:
     name: Tests
     runs-on: ubuntu-latest
