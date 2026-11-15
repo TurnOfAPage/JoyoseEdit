@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to attach the module zip to (existing release or new tag)'
+        required: true
+        default: 'test_0.1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -69,3 +74,47 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  publish-release:
+    name: Publish release assets
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download module zip artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: module-zip
+          path: release
+
+      - name: Find or create release, upload module zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          ZIP="$(ls release/*.zip)"
+          NAME="joyose-edit-${RELEASE_TAG}.zip"
+          echo "uploading $ZIP as $NAME to release $RELEASE_TAG"
+
+          # find release by tag, or create it (prerelease) if missing
+          ID="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "$API/releases/tags/$RELEASE_TAG" | jq -r '.id')" || {
+            echo "release $RELEASE_TAG not found — creating it"
+            ID="$(curl -fsSL -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "$API/releases" -d "$(jq -n --arg t "$RELEASE_TAG" \
+              '{tag_name: $t, target_commitish: "main", name: $t, prerelease: true}')" | jq -r '.id')"
+          }
+
+          # replace any existing asset with the same name (idempotent re-runs)
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$API/releases/$ID" \
+            | jq -r --arg n "$NAME" '.assets[] | select(.name == $n) | .id' \
+            | while read -r AID; do
+                [ -n "$AID" ] && curl -fsSL -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$API/releases/assets/$AID" > /dev/null
+              done
+
+          curl -fsSL -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/zip" \
+            "$API/releases/$ID/assets?name=$NAME" --data-binary @"$ZIP" \
+            | jq '{asset: .name, size: .size, browser_download_url}'
