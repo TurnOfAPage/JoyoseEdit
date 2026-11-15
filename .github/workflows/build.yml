@@ -25,8 +25,11 @@ jobs:
           node-version: 24
           cache: npm
 
+      # NOTE: `npm ci` fails on this repo: package-lock.json is stale
+      # (lock resolves vite@8.0.9, but package.json requires vite@^8.0.10).
+      # `npm install` re-resolves versions, so it succeeds.
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build (vue-tsc typecheck + vite build)
         run: npm run build
@@ -52,7 +55,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run tests
         run: npm test
