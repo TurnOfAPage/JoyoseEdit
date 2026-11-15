@@ -1,0 +1,11 @@
+name: zz-probe-c
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  release: write
+jobs:
+  a:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
