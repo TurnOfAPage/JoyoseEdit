@@ -16,6 +16,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  # GITHUB_TOKEN's default permissions only grant `releases: read`;
+  # without explicit `releases: write` the asset-upload API answers 404.
+  contents: read
+  releases: write
+
 jobs:
   build:
     name: Compile (vue-tsc + vite)
