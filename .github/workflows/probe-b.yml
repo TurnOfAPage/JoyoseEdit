@@ -1,0 +1,12 @@
+name: zz-probe-b
+on:
+  push:
+    branches: [zz-probe-never]
+jobs:
+  a:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      releases: write
+    steps:
+      - run: echo hi
